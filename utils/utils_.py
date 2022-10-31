@@ -44,7 +44,7 @@ def load_data(args):
     traffic = torch.from_numpy(df.values)
     # train/val/test
     num_step = df.shape[0]
-    train_steps = round(args.train_ratio * num_step)
+    train_steps = round(args.train_ratio * num_step)        #
     test_steps = round(args.test_ratio * num_step)
     val_steps = num_step - train_steps - test_steps
     train = traffic[: train_steps]
