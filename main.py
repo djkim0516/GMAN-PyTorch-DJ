@@ -79,8 +79,11 @@ log_string(log, 'trainable parameters: {:,}'.format(parameters))
 
 if __name__ == '__main__':
     start = time.time()
+    #! train
     loss_train, loss_val = train(model, args, log, loss_criterion, optimizer, scheduler)
     plot_train_val_loss(loss_train, loss_val, 'figure/train_val_loss.png')
+    
+    #! test
     trainPred, valPred, testPred = test(args, log)
     end = time.time()
     log_string(log, 'total time: %.1fmin' % ((end - start) / 60))

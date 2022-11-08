@@ -75,7 +75,7 @@ class STEmbedding(nn.Module):
 
         self.FC_te = FC(
             input_dims=[295, D], units=[D, D], activations=[F.relu, None],
-            bn_decay=bn_decay)  # input_dims = time step per day + days per week=288+7=295
+            bn_decay=bn_decay)  # input_dims = time step per day + days per week=288+7=295      24 * 12 + 7
 
     def forward(self, SE, TE, T=288):
         # spatial embedding
@@ -92,7 +92,7 @@ class STEmbedding(nn.Module):
         TE = TE.unsqueeze(dim=2)
         TE = self.FC_te(TE)
         del dayofweek, timeofday
-        return SE + TE
+        return SE + TE      #fusion
 
 
 class spatialAttention(nn.Module):
@@ -110,30 +110,42 @@ class spatialAttention(nn.Module):
         D = K * d
         self.d = d
         self.K = K
+        
+        #concat한거를 q, k, v로 변환
         self.FC_q = FC(input_dims=2 * D, units=D, activations=F.relu,
                        bn_decay=bn_decay)
         self.FC_k = FC(input_dims=2 * D, units=D, activations=F.relu,
                        bn_decay=bn_decay)
         self.FC_v = FC(input_dims=2 * D, units=D, activations=F.relu,
                        bn_decay=bn_decay)
+        
         self.FC = FC(input_dims=D, units=D, activations=F.relu,
                      bn_decay=bn_decay)
 
     def forward(self, X, STE):
         batch_size = X.shape[0]
+        
+        #!데이터랑 STE concat
         X = torch.cat((X, STE), dim=-1)
         # [batch_size, num_step, num_vertex, K * d]
+        
         query = self.FC_q(X)
         key = self.FC_k(X)
         value = self.FC_v(X)
-        # [K * batch_size, num_step, num_vertex, d]
+        
+        # [K * batch_size, num_step, num_vertex, d]     K : num of attention heads
         query = torch.cat(torch.split(query, self.K, dim=-1), dim=0)
         key = torch.cat(torch.split(key, self.K, dim=-1), dim=0)
         value = torch.cat(torch.split(value, self.K, dim=-1), dim=0)
+        #! attention heads 갯수만큼 dim=-1로 나누고 dim=0으로 다시 이어붙임
+        
+        #! query, key attention
         # [K * batch_size, num_step, num_vertex, num_vertex]
         attention = torch.matmul(query, key.transpose(2, 3))
         attention /= (self.d ** 0.5)
         attention = F.softmax(attention, dim=-1)
+        
+        #! attention mat, value matmul
         # [batch_size, num_step, num_vertex, D]
         X = torch.matmul(attention, value)
         X = torch.cat(torch.split(X, batch_size, dim=0), dim=-1)  # orginal K, change to batch_size
@@ -174,6 +186,8 @@ class temporalAttention(nn.Module):
         query = self.FC_q(X)
         key = self.FC_k(X)
         value = self.FC_v(X)
+        
+        #! num-step 때문에 다른 형태 permute
         # [K * batch_size, num_step, num_vertex, d]
         query = torch.cat(torch.split(query, self.K, dim=-1), dim=0)
         key = torch.cat(torch.split(key, self.K, dim=-1), dim=0)
@@ -187,7 +201,9 @@ class temporalAttention(nn.Module):
         # [K * batch_size, num_vertex, num_step, num_step]
         attention = torch.matmul(query, key)
         attention /= (self.d ** 0.5)
+        
         # mask attention score
+        #!시간에 따라서 앞에 것만 참고할 수 있게 masking(torch.tril 사용)
         if self.mask:
             batch_size = X.shape[0]
             num_step = X.shape[1]
@@ -197,7 +213,7 @@ class temporalAttention(nn.Module):
             mask = torch.unsqueeze(torch.unsqueeze(mask, dim=0), dim=0)
             mask = mask.repeat(self.K * batch_size, num_vertex, 1, 1)
             mask = mask.to(torch.bool)
-            attention = torch.where(mask, attention, -2 ** 15 + 1)
+            attention = torch.where(mask, attention, -2 ** 15 + 1)      #mask 값 또는 음의 최솟값 중 하나 선택
         # softmax
         attention = F.softmax(attention, dim=-1)
         # [batch_size, num_step, num_vertex, D]
@@ -292,7 +308,7 @@ class transformAttention(nn.Module):
         # value: [K * batch_size, num_vertex, num_his, d]
         query = query.permute(0, 2, 1, 3)
         key = key.permute(0, 2, 3, 1)
-        value = value.permute(0, 2, 1, 3)
+        value = value.permute(0, 2, 1, 3)   
         # [K * batch_size, num_vertex, num_pred, num_his]
         attention = torch.matmul(query, key)
         attention /= (self.d ** 0.5)
@@ -309,24 +325,26 @@ class transformAttention(nn.Module):
 class GMAN(nn.Module):
     '''
     GMAN
-        X：       [batch_size, num_his, num_vertx]
-        TE：      [batch_size, num_his + num_pred, 2] (time-of-day, day-of-week)
-        SE：      [num_vertex, K * d]
-        num_his： number of history steps
-        num_pred：number of prediction steps
-        T：       one day is divided into T steps
-        L：       number of STAtt blocks in the encoder/decoder
-        K：       number of attention heads
-        d：       dimension of each attention head outputs
-        return：  [batch_size, num_pred, num_vertex]
+        X :       [batch_size, num_his, num_vertx]
+        TE :      [batch_size, num_his + num_pred, 2] (time-of-day, day-of-week)
+        SE :      [num_vertex, K * d]
+        num_his : number of history steps
+        num_pred : number of prediction steps
+        T :       one day is divided into T steps
+        L :       number of STAtt blocks in the encoder/decoder
+        K :       number of attention heads
+        d :       dimension of each attention head outputs
+        return :  [batch_size, num_pred, num_vertex]
     '''
 
     def __init__(self, SE, args, bn_decay):
         super(GMAN, self).__init__()
-        L = args.L
-        K = args.K
-        d = args.d
-        D = K * d
+        
+        L = args.L      #어텐션 블록 갯수
+        K = args.K      #number of attention heads
+        d = args.d      #dim of each attention head outputs 각 어텐션 head마다 나오는 출력 차원
+        D = K * d       #D-dim  어텐션 head에서 나온거 전부 이어붙인 사이즈
+        
         self.num_his = args.num_his
         self.SE = SE
         self.STEmbedding = STEmbedding(D, bn_decay)

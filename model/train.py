@@ -18,7 +18,7 @@ def train(model, args, log, loss_criterion, optimizer, scheduler):
 
     wait = 0
     val_loss_min = float('inf')
-    best_model_wts = None
+    best_model_wts = None 
     train_total_loss = []
     val_total_loss = []
 
@@ -37,13 +37,17 @@ def train(model, args, log, loss_criterion, optimizer, scheduler):
         model.train()
         train_loss = 0
         for batch_idx in range(train_num_batch):
-            start_idx = batch_idx * args.batch_size
-            end_idx = min(num_train, (batch_idx + 1) * args.batch_size)
+            start_idx = batch_idx * args.batch_size         #시작 인덱스 : 인덱스 * 배치 사이즈(32)
+            end_idx = min(num_train, (batch_idx + 1) * args.batch_size)     #끝 인덱스 : (데이터 총 개수 또는 32번째꺼)
+            
             X = trainX[start_idx: end_idx]
             TE = trainTE[start_idx: end_idx]
             label = trainY[start_idx: end_idx]
+            
             optimizer.zero_grad()
-            pred = model(X, TE)
+            
+            pred = model(X, TE)     #prediction
+            
             pred = pred * std + mean
             loss_batch = loss_criterion(pred, label)
             train_loss += float(loss_batch) * (end_idx - start_idx)

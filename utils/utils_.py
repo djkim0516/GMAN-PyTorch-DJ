@@ -28,9 +28,11 @@ def metric(pred, label):
 
 
 def seq2instance(data, num_his, num_pred):
-    num_step, dims = data.shape
-    num_sample = num_step - num_his - num_pred + 1
-    x = torch.zeros(num_sample, num_his, dims)
+    num_step, dims = data.shape     #길이, 입력 데이터 차원
+    num_sample = num_step - num_his - num_pred + 1      #샘플 개수 = 길이 - 과거 길이 - 예측 길이 + 1
+    
+    #데이터를 학습에 쓸 수 있는 모양의 instance로 생성
+    x = torch.zeros(num_sample, num_his, dims)          
     y = torch.zeros(num_sample, num_pred, dims)
     for i in range(num_sample):
         x[i] = data[i: i + num_his]
@@ -44,13 +46,15 @@ def load_data(args):
     traffic = torch.from_numpy(df.values)
     # train/val/test
     num_step = df.shape[0]
-    train_steps = round(args.train_ratio * num_step)        #
+    #비율로 자름
+    train_steps = round(args.train_ratio * num_step)    
     test_steps = round(args.test_ratio * num_step)
     val_steps = num_step - train_steps - test_steps
     train = traffic[: train_steps]
     val = traffic[train_steps: train_steps + val_steps]
     test = traffic[-test_steps:]
-    # X, Y
+    
+    # X, Y #! D-차원 벡터 생성 
     trainX, trainY = seq2instance(train, args.num_his, args.num_pred)
     valX, valY = seq2instance(val, args.num_his, args.num_pred)
     testX, testY = seq2instance(test, args.num_his, args.num_pred)
@@ -60,7 +64,7 @@ def load_data(args):
     valX = (valX - mean) / std
     testX = (testX - mean) / std
 
-    # spatial embedding
+    #! spatial embedding
     with open(args.SE_file, mode='r') as f:
         lines = f.readlines()
         temp = lines[0].split(' ')
@@ -71,12 +75,16 @@ def load_data(args):
             index = int(temp[0])
             SE[index] = torch.tensor([float(ch) for ch in temp[1:]])
 
-    # temporal embedding
+    #! temporal embedding
     time = pd.DatetimeIndex(df.index)
     dayofweek = torch.reshape(torch.tensor(time.weekday), (-1, 1))
+    # 시간 * 3600 
     timeofday = (time.hour * 3600 + time.minute * 60 + time.second) \
-                // time.freq.delta.total_seconds()
+                // 5*60     #5분 단위 60초씩
+                # // time.total_seconds()
+                # // time.freq.delta.total_seconds()
     timeofday = torch.reshape(torch.tensor(timeofday), (-1, 1))
+    print(timeofday)
     time = torch.cat((dayofweek, timeofday), -1)
     # train/val/test
     train = time[: train_steps]
