@@ -265,7 +265,7 @@ class STAttBlock(nn.Module):
         HT = self.temporalAttention(X, STE)
         H = self.gatedFusion(HS, HT)
         del HS, HT
-        return torch.add(X, H)
+        return torch.add(X, H)      #residual connection 잔차 학습
 
 
 class transformAttention(nn.Module):
@@ -300,7 +300,7 @@ class transformAttention(nn.Module):
         key = self.FC_k(STE_his)
         value = self.FC_v(X)
         # [K * batch_size, num_step, num_vertex, d]
-        query = torch.cat(torch.split(query, self.K, dim=-1), dim=0)
+        query = torch.cat(torch.split(query, self.K, dim=-1), dim=0) #나눴다가 입체로 다시 붙이는거?
         key = torch.cat(torch.split(key, self.K, dim=-1), dim=0)
         value = torch.cat(torch.split(value, self.K, dim=-1), dim=0)
         # query: [K * batch_size, num_vertex, num_pred, d]
