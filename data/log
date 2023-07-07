@@ -8,31 +8,3 @@ data loaded!
 compiling model...
 trainable parameters: 209,923
 **** training model ****
-2022-11-09 16:46:32 | epoch: 0001/1, training time: 12153.7s, inference time: 822.8s
-train loss: 28.4927, val_loss: 24.7836
-val loss decrease from inf to 24.7836, saving model to ./data/GMAN.pkl
-Training and validation are completed, and model has been stored as ./data/GMAN.pkl
-**** testing model ****
-loading model from ./data/GMAN.pkl
-model restored!
-evaluating...
-testing time: 1507.1s
-                MAE		RMSE		MAPE
-train            2.19		4.46		nan%
-val              2.40		4.94		nan%
-test             2.25		4.64		nan%
-performance in each prediction step
-step: 01         1.89		3.75		nan%
-step: 02         1.94		3.84		nan%
-step: 03         2.00		3.96		nan%
-step: 04         2.05		4.10		nan%
-step: 05         2.12		4.26		nan%
-step: 06         2.18		4.43		nan%
-step: 07         2.26		4.62		nan%
-step: 08         2.33		4.81		nan%
-step: 09         2.42		5.02		nan%
-step: 10         2.51		5.23		nan%
-step: 11         2.61		5.45		nan%
-step: 12         2.70		5.67		nan%
-average:         2.25		4.60		nan%
-total time: 348.9min
